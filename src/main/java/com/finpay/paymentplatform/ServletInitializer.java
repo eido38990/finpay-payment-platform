@@ -1,4 +1,4 @@
-package com.finpay.pyamentplatform;
+package com.finpay.paymentplatform;
 
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;

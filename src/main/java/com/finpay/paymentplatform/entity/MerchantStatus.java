@@ -1,4 +1,4 @@
-package com.finpay.pyamentplatform.entity;
+package com.finpay.paymentplatform.entity;
 
 public enum MerchantStatus {
     ACTIVE,

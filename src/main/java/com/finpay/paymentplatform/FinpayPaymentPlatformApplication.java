@@ -1,4 +1,4 @@
-package com.finpay.pyamentplatform;
+package com.finpay.paymentplatform;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

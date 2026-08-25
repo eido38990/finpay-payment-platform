@@ -1,4 +1,4 @@
-package com.finpay.pyamentplatform.entity;
+package com.finpay.paymentplatform.entity;
 
 import jakarta.persistence.*;
 
@@ -28,4 +28,7 @@ public class Payment {
     private Instant createAt;
     @Column(name = "updated_at",nullable = false)
     private Instant updatedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_method_reference",nullable = false)
+    private PaymentMethod paymentMethod;
 }

@@ -1,8 +1,6 @@
-package com.finpay.pyamentplatform.entity;
+package com.finpay.paymentplatform.entity;
 
-import jakarta.persistence.*;
 
-@Entity
 public enum PaymentStatus {
     CREATED,
     AUTHORIZED,

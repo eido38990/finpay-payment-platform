@@ -1,5 +1,6 @@
 package com.finpay.paymentplatform.controller;
 
+import com.finpay.paymentplatform.dto.CreateMerchantRequest;
 import com.finpay.paymentplatform.entity.Merchant;
 import com.finpay.paymentplatform.service.MerchantService;
 import org.springframework.http.HttpStatus;
@@ -18,10 +19,8 @@ public class MerchantController {
     }
 
     @PostMapping
-    public ResponseEntity<Merchant> createdMerchant(@RequestBody Merchant merchant){
-        Merchant createdMerchant = merchantService.createMerchant(merchant);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(createdMerchant);
+    public Merchant createMerchant(@RequestBody CreateMerchantRequest request){
+        return merchantService.createMerchant(request);
     }
 
 }

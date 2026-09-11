@@ -16,6 +16,13 @@ public class Merchant {
     private String businessName;
     @Column(nullable = false,unique = true)
     private String email;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MerchantStatus status;
+    @Column(name = "created_at",nullable = false)
+    private Instant createdAt;
+    @Column(name = "updated_at",nullable = false)
+    private Instant updatedAt;
 
     public void setId(Long id) {
         this.id = id;
@@ -73,13 +80,7 @@ public class Merchant {
         return updatedAt;
     }
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MerchantStatus status;
-    @Column(name = "created_at",nullable = false)
-    private Instant createdAt;
-    @Column(name = "updated_at",nullable = false)
-    private Instant updatedAt;
+
 
 
 }

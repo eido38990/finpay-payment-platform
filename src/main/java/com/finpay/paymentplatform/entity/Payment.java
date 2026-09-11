@@ -9,6 +9,9 @@ public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
+    @Column(name = "idempotency_key", unique = true,nullable = false)
+    private String idempotencyKey;
+
     @Column(name = "payment_reference",nullable = false,unique = true)
     private String paymentReference;
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,6 +34,13 @@ public class Payment {
 
     public void setId(Long id) {
         this.id = id;
+    }
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 
     public String getPaymentReference() {

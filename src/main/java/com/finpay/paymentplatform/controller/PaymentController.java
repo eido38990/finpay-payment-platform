@@ -3,6 +3,7 @@ package com.finpay.paymentplatform.controller;
 import com.finpay.paymentplatform.dto.CreatePaymentRequest;
 import com.finpay.paymentplatform.entity.Payment;
 import com.finpay.paymentplatform.service.PaymentService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -13,7 +14,7 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
     @PostMapping
-    public Payment createPayment(@RequestBody CreatePaymentRequest request){
+    public Payment createPayment(@Valid @RequestBody CreatePaymentRequest request){
         return paymentService.createPayment(request);
     }
     @PostMapping("/{paymentId}/authorize")

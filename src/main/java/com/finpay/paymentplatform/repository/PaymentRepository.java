@@ -12,6 +12,6 @@ import java.util.Optional;
 public interface PaymentRepository extends JpaRepository<Payment,Long> {
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM Payment p WHERE p.id = id")
+    @Query("SELECT p FROM Payment p WHERE p.id = :id")
     Optional<Payment> findByIdForUpdate(@Param("id")Long id);
 }

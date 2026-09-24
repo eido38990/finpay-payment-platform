@@ -1,12 +1,17 @@
 package com.finpay.paymentplatform.service;
 
+import com.finpay.paymentplatform.attempt.PaymentAttemptService;
+import com.finpay.paymentplatform.attempt.PaymentAttemptType;
 import com.finpay.paymentplatform.dto.CreatePaymentMethodRequest;
 import com.finpay.paymentplatform.dto.CreatePaymentRequest;
 import com.finpay.paymentplatform.entity.*;
+import com.finpay.paymentplatform.event.PaymentEvent;
+import com.finpay.paymentplatform.event.PaymentEventProducer;
 import com.finpay.paymentplatform.exception.InvalidPaymentStateException;
 import com.finpay.paymentplatform.exception.ResourceNotFoundException;
 import com.finpay.paymentplatform.ledger.LedgerService;
 import com.finpay.paymentplatform.provider.PaymentProvider;
+import com.finpay.paymentplatform.provider.ProviderResult;
 import com.finpay.paymentplatform.repository.CustomerRepository;
 import com.finpay.paymentplatform.repository.MerchantRepository;
 import com.finpay.paymentplatform.repository.PaymentMethodRepository;
@@ -25,15 +30,21 @@ public class PaymentService {
     private final PaymentMethodRepository paymentMethodRepository;
     private final PaymentProvider paymentProvider;
     private final LedgerService ledgerService;
+    private final PaymentAttemptService paymentAttemptService;
+    private final PaymentEventProducer paymentEventProducer;
     public PaymentService(PaymentRepository paymentRepository,CustomerRepository customerRepository,
                           MerchantRepository merchantRepository,PaymentMethodRepository paymentMethodRepository,
-                          PaymentProvider paymentProvider,LedgerService ledgerService){
+                          PaymentProvider paymentProvider,LedgerService ledgerService,
+                          PaymentAttemptService paymentAttemptService,
+                          PaymentEventProducer paymentEventProducer){
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.merchantRepository = merchantRepository;
         this.paymentMethodRepository = paymentMethodRepository;
         this.paymentProvider = paymentProvider;
         this.ledgerService = ledgerService;
+        this.paymentAttemptService = paymentAttemptService;
+        this.paymentEventProducer = paymentEventProducer;
     }
     @Transactional
     public Payment createPayment(CreatePaymentRequest request){
@@ -92,11 +103,18 @@ public class PaymentService {
         if (payment.getStatus() != PaymentStatus.CREATED){
             throw new InvalidPaymentStateException("Only CREATED payments can be authorized");
         }
-        boolean approved = paymentProvider.authorize(payment);
-        if (approved){
+        ProviderResult result = paymentProvider.authorize(payment);
+        if (result.isSuccess()){
             payment.setStatus(PaymentStatus.AUTHORIZED);
+            paymentAttemptService.recordSuccess(payment,
+                    PaymentAttemptType.AUTHORIZE,
+                    result.getProviderReference());
         } else {
             payment.setStatus(PaymentStatus.FAILED);
+            paymentAttemptService.recordFailure(
+                    payment,
+                    PaymentAttemptType.AUTHORIZE,
+                    result.getFailureReason());
         }
         payment.setUpdatedAt(Instant.now());
         return paymentRepository.save(payment);
@@ -109,17 +127,43 @@ public class PaymentService {
         if (payment.getStatus() != PaymentStatus.AUTHORIZED){
             throw new InvalidPaymentStateException("Only AUTHORIZED payments can be captured");
         }
-        boolean capture = paymentProvider.capture(payment);
-        if (capture){
-            payment.setStatus(PaymentStatus.CAPTURED);
-            paymentRepository.save(payment);
-            ledgerService.recordCapture(payment);
-        }else {
+        ProviderResult result = paymentProvider.capture(payment);
+        if (!result.isSuccess()) {
+
             payment.setStatus(PaymentStatus.FAILED);
+            payment.setUpdatedAt(Instant.now());
+
+            paymentAttemptService.recordFailure(
+                    payment,
+                    PaymentAttemptType.CAPTURE,
+                    result.getFailureReason()
+            );
+            return paymentRepository.save(payment);
         }
         payment.setStatus(PaymentStatus.CAPTURED);
         payment.setUpdatedAt(Instant.now());
-        return paymentRepository.save(payment);
+        paymentRepository.save(payment);
+        paymentAttemptService.recordSuccess(
+                payment,
+                PaymentAttemptType.CAPTURE,
+                result.getProviderReference()
+        );
+        ledgerService.recordCapture(payment);
+        PaymentEvent event = new PaymentEvent();
+        event.setEventId( "EVT_" + UUID.randomUUID()
+                .toString()
+                .substring(0, 8)
+                .toUpperCase());
+        event.setEventType("PAYMENT_CAPTURED");
+        event.setPaymentId(payment.getId());
+        event.setPaymentReference(payment.getPaymentReference());
+        event.setMerchantId(payment.getMerchant().getId());
+        event.setAmount(payment.getPayment());
+        event.setCurrency(payment.getCurrency());
+        event.setOccurredAt(Instant.now());
+        paymentEventProducer.publish(event);
+
+        return payment;
     }
 
     @Transactional
@@ -129,17 +173,35 @@ public class PaymentService {
         if (payment.getStatus() != PaymentStatus.CAPTURED){
             throw new InvalidPaymentStateException("Only Captured Payments can be refunded");
         }
-        boolean refund = paymentProvider.refund(payment);
-        if (refund){
-            payment.setStatus(PaymentStatus.REFUNDED);
+        ProviderResult result =
+                paymentProvider.refund(payment);
 
-        }else {
-            throw new RuntimeException("Refund Failed");
+        if (!result.isSuccess()) {
+
+            paymentAttemptService.recordFailure(
+                    payment,
+                    PaymentAttemptType.REFUND,
+                    result.getFailureReason()
+            );
+
+            throw new RuntimeException(
+                    "Refund failed: " + result.getFailureReason()
+            );
         }
+
         payment.setStatus(PaymentStatus.REFUNDED);
         payment.setUpdatedAt(Instant.now());
+
         paymentRepository.save(payment);
+
+        paymentAttemptService.recordSuccess(
+                payment,
+                PaymentAttemptType.REFUND,
+                result.getProviderReference()
+        );
+
         ledgerService.recordRefund(payment);
+
         return payment;
     }
 }
